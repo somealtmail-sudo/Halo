@@ -455,6 +455,7 @@ enum AudioDetector {
 
     @MainActor
     static func resolve(_ processes: [AudioProcess]) -> [AudioSource] {
+        guard !processes.isEmpty else { return [] }
         let applications = NSWorkspace.shared.runningApplications.filter { $0.activationPolicy == .regular }
         var sources: [String: AudioSource] = [:]
         for process in processes {
@@ -468,7 +469,15 @@ enum AudioDetector {
                 .filter { $0.bundleIdentifier.map { id == $0 || id.hasPrefix($0 + ".") } == true }
                 .max { ($0.bundleIdentifier?.count ?? 0) < ($1.bundleIdentifier?.count ?? 0) }
             let resolved = parent?.bundleIdentifier ?? id
-            let name = parent?.localizedName ?? app?.localizedName ?? rawID?.split(separator: ".").last.map(String.init) ?? "Audio process \(pid)"
+            let bundleName: String?
+            if let component = rawID?.split(separator: ".").last {
+                bundleName = String(component)
+            } else {
+                bundleName = nil
+            }
+            let applicationName: String? = parent?.localizedName ?? app?.localizedName
+            let fallbackName: String = bundleName ?? "Audio process \(pid)"
+            let name: String = applicationName ?? fallbackName
             sources[resolved] = AudioSource(id: resolved, name: name, pid: parent?.processIdentifier ?? pid)
         }
         return sources.values.sorted { $0.name == $1.name ? $0.id < $1.id : $0.name < $1.name }
