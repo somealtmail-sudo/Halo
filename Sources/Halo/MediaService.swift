@@ -16,6 +16,7 @@ final class MediaService: ObservableObject {
     enum Backend: String { case system = "System Now Playing", direct = "Direct player", none = "Waiting for playback" }
     @Published private(set) var snapshot = MediaSnapshot()
     @Published private(set) var artwork: NSImage?
+    @Published private(set) var waveformColors = ArtworkPalette.fallback
     @Published private(set) var audioSources: [AudioSource] = []
     @Published private(set) var adapterStatus = "Connecting…"
     @Published private(set) var backend = Backend.none
@@ -180,6 +181,19 @@ final class MediaService: ObservableObject {
         return [script, framework]
     }
 
+    /// FileHandle.read(upToCount:) can wait to fill its request on a live pipe.
+    /// A single POSIX read delivers the available bytes, including a short final
+    /// chunk containing the artwork snapshot's newline.
+    private nonisolated static func readAvailable(_ handle: FileHandle) -> Data? {
+        var bytes = [UInt8](repeating: 0, count: 64 * 1024)
+        var count: Int
+        repeat {
+            count = bytes.withUnsafeMutableBytes { Darwin.read(handle.fileDescriptor, $0.baseAddress!, $0.count) }
+        } while count < 0 && errno == EINTR
+        guard count > 0 else { return nil }
+        return Data(bytes.prefix(count))
+    }
+
     private func startAdapter() {
         guard let arguments = adapterArguments else { adapterStatus = "Adapter missing — use the bundled Halo.app"; return }
         let child = Process()
@@ -192,7 +206,7 @@ final class MediaService: ObservableObject {
         let token = generation
         let queue = readerQueue
         output.fileHandleForReading.readabilityHandler = { [weak self] handle in
-            guard let data = try? handle.read(upToCount: 64 * 1024), !data.isEmpty else { handle.readabilityHandler = nil; return }
+            guard let data = Self.readAvailable(handle) else { handle.readabilityHandler = nil; return }
             queue.async {
                 for snapshot in decoder.decode(data) {
                     DispatchQueue.main.async { [weak self] in
@@ -204,7 +218,7 @@ final class MediaService: ObservableObject {
             }
         }
         errors.fileHandleForReading.readabilityHandler = { handle in
-            if (try? handle.read(upToCount: 64 * 1024))?.isEmpty != false { handle.readabilityHandler = nil }
+            if Self.readAvailable(handle) == nil { handle.readabilityHandler = nil }
         }
         child.terminationHandler = { [weak self] child in
             DispatchQueue.main.async {
@@ -241,6 +255,7 @@ final class MediaService: ObservableObject {
         artworkRevision = UUID()
         let revision = artworkRevision
         artwork = nil
+        waveformColors = ArtworkPalette.fallback
         guard let encoded else { return }
         artworkQueue.async { [weak self] in
             // Artwork is displayed at small sizes; decode one bounded thumbnail off the UI thread.
@@ -251,9 +266,11 @@ final class MediaService: ObservableObject {
             let image = Data(base64Encoded: encoded)
                 .flatMap { CGImageSourceCreateWithData($0 as CFData, nil) }
                 .flatMap { CGImageSourceCreateThumbnailAtIndex($0, 0, options) }
+            let colors = image.map { ArtworkPalette.extract(from: $0) } ?? ArtworkPalette.fallback
             DispatchQueue.main.async {
                 guard let self, !self.stopped, self.artworkRevision == revision else { return }
                 self.artwork = image.map { NSImage(cgImage: $0, size: .zero) }
+                self.waveformColors = colors
             }
         }
     }

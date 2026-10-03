@@ -94,7 +94,8 @@ public struct LineBuffer {
             }
             guard end < data.endIndex else { break }
             if !discardingOversizedLine { lines.append(pending) }
-            pending.removeAll(keepingCapacity: true)
+            // Do not keep multi-megabyte artwork line storage between updates.
+            pending.removeAll(keepingCapacity: pending.count <= 256 * 1024)
             discardingOversizedLine = false
             start = data.index(after: end)
         }

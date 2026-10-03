@@ -45,6 +45,19 @@ struct SettingsView: View {
                         Button("Reset sizes") { model.resetDimensions() }.controlSize(.small)
                     }
                 } header: { Text("Size · points") }
+                Section("Waveform") {
+                    Toggle("Live system audio waveform", isOn: $model.liveWaveform)
+                    dimension("Width", value: $model.waveformWidth, range: 16...40)
+                    dimension("Height", value: $model.waveformHeight, range: 8...28)
+                    dimension("Line thickness", value: $model.waveformThickness, range: 0.5...4, step: 0.5)
+                    dimension("Lines", value: $model.waveformLineCount, range: 3...16, unit: "")
+                    WaveformStatus(waveform: model.waveform) {
+                        model.waveform.retry()
+                        model.reconcileWaveform()
+                    }
+                    Text("Shows the amplitude of all system audio. Audio is never saved. Thickness fits the available width; Reduce motion pauses capture.")
+                        .font(.system(size: 10)).foregroundStyle(.secondary)
+                }
                 Section("Alerts") {
                     Toggle("Track changes", isOn: $model.trackPeeks)
                     Toggle("Battery updates", isOn: $model.batteryAlerts)
@@ -94,19 +107,19 @@ struct SettingsView: View {
         return minimum...max(360, minimum)
     }
 
-    private func dimension(_ title: String, value: Binding<Double>, range: ClosedRange<Double>, automaticValue: CGFloat? = nil) -> some View {
+    private func dimension(_ title: String, value: Binding<Double>, range: ClosedRange<Double>, automaticValue: CGFloat? = nil, step: Double = 1, unit: String = " pt") -> some View {
         let bounded = Binding(get: {
             let stored = value.wrappedValue
             return stored.isFinite ? min(range.upperBound, max(range.lowerBound, stored)) : range.lowerBound
         }, set: { proposed in
-            value.wrappedValue = proposed.isFinite ? min(range.upperBound, max(range.lowerBound, proposed.rounded())) : range.lowerBound
+            value.wrappedValue = proposed.isFinite ? min(range.upperBound, max(range.lowerBound, (proposed / step).rounded() * step)) : range.lowerBound
         })
         let actual = automaticValue.map { Double($0) } ?? bounded.wrappedValue
         let displayed = actual.isFinite ? actual : range.lowerBound
         return HStack(spacing: 10) {
             Text(title).frame(width: 92, alignment: .leading)
             Slider(value: bounded, in: range).accessibilityLabel(title)
-            Text("\(Int(displayed)) pt")
+            Text((step < 1 ? String(format: "%.1f", displayed) : "\(Int(displayed))") + unit)
                 .monospacedDigit().foregroundStyle(.secondary).frame(width: 54, alignment: .trailing)
         }
     }
@@ -122,5 +135,17 @@ struct SettingsView: View {
         let status = SMAppService.mainApp.status
         loginEnabled = status == .enabled
         loginError = status == .requiresApproval ? "Allow Halo in System Settings → General → Login Items." : nil
+    }
+}
+
+private struct WaveformStatus: View {
+    @ObservedObject var waveform: AudioWaveform
+    let retry: () -> Void
+    var body: some View {
+        HStack {
+            Text(waveform.status).font(.system(size: 11)).foregroundStyle(.secondary)
+            Spacer()
+            Button("Retry", action: retry).controlSize(.small)
+        }
     }
 }

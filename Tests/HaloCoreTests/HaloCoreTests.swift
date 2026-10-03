@@ -78,4 +78,27 @@ final class HaloCoreTests: XCTestCase {
         timer.reset()
         XCTAssertFalse(timer.isActive)
     }
+    func testAddingTimeExtendsRunningDeadlineAndCompletesOnce() {
+        var timer = FocusClock()
+        let now = Date(timeIntervalSince1970: 100)
+        timer.start(minutes: 5, now: now)
+        timer.add(minutes: 5)
+        XCTAssertEqual(timer.remaining(at: now.addingTimeInterval(90)), 510)
+        XCTAssertEqual(timer.duration, 600)
+        XCTAssertFalse(timer.tick(now: now.addingTimeInterval(300)))
+        XCTAssertTrue(timer.tick(now: now.addingTimeInterval(600)))
+        XCTAssertFalse(timer.tick(now: now.addingTimeInterval(601)))
+    }
+    func testAddingTimeKeepsPausedTimerPausedAndResumesExtendedTime() {
+        var timer = FocusClock()
+        let now = Date(timeIntervalSince1970: 100)
+        timer.start(minutes: 5, now: now)
+        timer.pause(now: now.addingTimeInterval(90))
+        timer.add(minutes: 5)
+        XCTAssertTrue(timer.isPaused)
+        XCTAssertFalse(timer.isRunning)
+        XCTAssertEqual(timer.remaining(at: now.addingTimeInterval(900)), 510)
+        timer.resume(now: now.addingTimeInterval(900))
+        XCTAssertEqual(timer.remaining(at: now.addingTimeInterval(910)), 500)
+    }
 }

@@ -30,6 +30,13 @@ public struct FocusClock: Equatable, Sendable {
         deadline = now.addingTimeInterval(pausedRemaining)
         self.pausedRemaining = nil
     }
+    public mutating func add(minutes: Int) {
+        guard isActive, minutes > 0 else { return }
+        let additional = Double(minutes) * 60
+        duration += additional
+        if let deadline { self.deadline = deadline.addingTimeInterval(additional) }
+        if let pausedRemaining { self.pausedRemaining = pausedRemaining + additional }
+    }
     @discardableResult public mutating func tick(now: Date) -> Bool {
         guard let deadline, now >= deadline else { return false }
         self.deadline = nil

@@ -32,6 +32,8 @@ try:
             "CFBundlePackageType": "APPL", "CFBundleShortVersionString": "1.2.0",
             "CFBundleVersion": "3", "LSMinimumSystemVersion": "14.2",
             "LSUIElement": True, "NSHighResolutionCapable": True,
+            "NSAudioCaptureUsageDescription": "Halo uses system audio samples to display an accurate live waveform. Audio is never recorded or saved.",
+            "NSCameraUsageDescription": "Halo shows a live mirrored camera preview in the notch. Video is never recorded or saved.",
             "NSAppleEventsUsageDescription": "Halo can optionally read track details and control Apple Music and Spotify when system media information is unavailable.",
             "NSPrincipalClass": "NSApplication", "CFBundleIconFile": "Halo.icns",
         }, file)
