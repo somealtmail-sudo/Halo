@@ -1,0 +1,46 @@
+name: Build and verify
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: halo-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  macos:
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - name: Check out source
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - name: Toolchain
+        run: |
+          swift --version
+          uname -m
+      - name: Unit and regression tests
+        run: swift test
+      - name: Build signed local bundle
+        run: bash scripts/build.sh
+      - name: Package and verify download
+        run: |
+          python3 scripts/release.py
+          cd dist
+          shasum -a 256 -c SHA256SUMS.txt
+          unzip -tq Halo-*-macOS-arm64.zip
+      - name: Retain private build artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: Halo-macOS-arm64
+          path: |
+            dist/Halo-*-macOS-arm64.zip
+            dist/Halo-*-macOS-arm64.dmg
+            dist/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 14

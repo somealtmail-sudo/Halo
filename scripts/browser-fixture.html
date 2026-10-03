@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><title>Halo · Browser media test</title>
+<style>body{background:#10120f;color:#f6f8f2;font:18px system-ui;max-width:650px;margin:12vh auto}button{font:inherit;padding:12px 22px;border:0;border-radius:30px;background:#c5f573;color:#10120f;cursor:pointer}p{color:#a2a89c;line-height:1.6}audio{width:100%;margin:20px 0}small{color:#a2a89c}</style>
+<h1>Halo browser playback test</h1>
+<p>This local page generates silent audio and publishes test metadata to macOS. Nothing is uploaded.</p>
+<button id="start">Play test audio</button><audio id="audio" controls></audio>
+<p id="status">Ready. Open Halo’s Now Playing tab, then play.</p>
+<small>Close this tab after testing. The audio is intentionally silent.</small>
+<script>
+const player = document.querySelector('audio');
+const sampleRate = 8000, samples = sampleRate * 120;
+const buffer = new ArrayBuffer(44 + samples * 2), view = new DataView(buffer);
+function str(offset, text) { for (let i = 0; i < text.length; i++) view.setUint8(offset + i, text.charCodeAt(i)); }
+str(0,'RIFF');view.setUint32(4,36+samples*2,true);str(8,'WAVE');str(12,'fmt ');view.setUint32(16,16,true);view.setUint16(20,1,true);view.setUint16(22,1,true);view.setUint32(24,sampleRate,true);view.setUint32(28,sampleRate*2,true);view.setUint16(32,2,true);view.setUint16(34,16,true);str(36,'data');view.setUint32(40,samples*2,true);
+player.src = URL.createObjectURL(new Blob([buffer],{type:'audio/wav'}));
+function update() {
+  if ('mediaSession' in navigator) {
+    navigator.mediaSession.metadata = new MediaMetadata({title:'Halo Browser Test',artist:'Local verification',album:'Silent audio fixture'});
+    navigator.mediaSession.playbackState = player.paused ? 'paused' : 'playing';
+    if(Number.isFinite(player.duration)) navigator.mediaSession.setPositionState({duration:player.duration,playbackRate:1,position:player.currentTime});
+  }
+  document.querySelector('#status').textContent = player.paused ? 'Paused — Halo should show a play button.' : 'Playing — Halo should show “Halo Browser Test”.';
+}
+document.querySelector('#start').onclick = () => player.play();
+player.addEventListener('play',update);player.addEventListener('pause',update);player.addEventListener('seeked',update);
+if('mediaSession' in navigator) {
+  navigator.mediaSession.setActionHandler('play',()=>player.play());
+  navigator.mediaSession.setActionHandler('pause',()=>player.pause());
+  navigator.mediaSession.setActionHandler('seekto',event=>{player.currentTime=event.seekTime;update()});
+}
+</script></html>
