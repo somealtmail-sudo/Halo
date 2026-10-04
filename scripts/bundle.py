@@ -29,8 +29,8 @@ try:
         plistlib.dump({
             "CFBundleName": "Halo", "CFBundleDisplayName": "Halo",
             "CFBundleIdentifier": "dev.kevin.halo", "CFBundleExecutable": "Halo",
-            "CFBundlePackageType": "APPL", "CFBundleShortVersionString": "1.3.0",
-            "CFBundleVersion": "4", "LSMinimumSystemVersion": "14.2",
+            "CFBundlePackageType": "APPL", "CFBundleShortVersionString": "1.3.1",
+            "CFBundleVersion": "5", "LSMinimumSystemVersion": "14.2",
             "LSUIElement": True, "NSHighResolutionCapable": True,
             "NSAudioCaptureUsageDescription": "Halo uses system audio samples to display an accurate live waveform. Audio is never recorded or saved.",
             "NSCameraUsageDescription": "Halo shows a live mirrored camera preview in the notch. Video is never recorded or saved.",

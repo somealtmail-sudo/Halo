@@ -1,8 +1,8 @@
 # Releasing Halo
 
-Halo 1.3.0 (build 4) targets Apple silicon and macOS 14.2 or later. The default build is a **private ad hoc beta**, signed locally and not notarized. The current development machine has no Developer ID Application identity. A downloadable ad hoc build can be blocked by Gatekeeper; these scripts do not change system security settings.
+Halo 1.3.1 (build 5) targets Apple silicon and macOS 14.2 or later. The default build is a **ad hoc build**, signed locally and not notarized. The current development machine has no Developer ID Application identity. A downloadable ad hoc build can be blocked by Gatekeeper; these scripts do not change system security settings.
 
-## Local beta
+## Local packaging
 
 From the project root:
 
@@ -17,8 +17,8 @@ python3 scripts/release.py
 
 Outputs in `dist/`:
 
-- `Halo-1.3.0-macOS-arm64.zip`, containing `Halo.app`.
-- `Halo-1.3.0-macOS-arm64.dmg`, containing the app, an Applications shortcut, and a short installation README.
+- `Halo-1.3.1-macOS-arm64.zip`, containing `Halo.app`.
+- `Halo-1.3.1-macOS-arm64.dmg`, containing the app, an Applications shortcut, and a short installation README.
 - `SHA256SUMS.txt`, covering both final archives.
 
 Quit a running Halo, drag the app to Applications, then launch it. The app runs in the menu bar. Login startup is an explicit Settings toggle. Installation and startup registration are separate from packaging.

@@ -95,3 +95,11 @@ Integration tests launch a silent player for a few seconds, temporarily publish 
 - Live media diagnostics confirmed artwork delivery and decoding after replacing the pipe's fill-length reads with single reads of available bytes.
 - Native UI inspection during Apple Music playback confirmed the expanded top header is empty, with album artwork and a single waveform in the dropdown controls. Compact header content is conditionally removed with an identity transition.
 - Native UI checks confirmed +5 minutes changes an unstarted timer from 25:00 to 30:00, extends a running timer, and changes a paused timer from 34:46 to 39:46 while retaining Resume. The 15-minute preset and new button fit the expanded Focus tab.
+
+
+## 1.3.1 release validation — 2026-10-04
+
+- All 37 Swift tests and six release privacy tests passed. Palette regressions cover muted colors, groups of similar shades, and small saturated accents.
+- The optimized build, ZIP/DMG SHA-256 checksums, ZIP integrity, extracted-app privacy audit and strict nested signatures, and DMG verification passed.
+- Local integration checks passed for CoreAudio detection, Now Playing metadata, play/pause, seeking, and next/previous track commands. Lifecycle checks were skipped because the installed Halo was running.
+- Built with Xcode 27.0 (27A266a), Swift 6.4, on macOS 27.0.1. Artifacts are ad-hoc signed and not notarized. Fresh-machine acceptance and live visual matching were not verified in this update.

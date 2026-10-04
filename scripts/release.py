@@ -12,7 +12,7 @@ from privacy_check import audit_bundle
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 DIST = ROOT / "dist"
 APP = DIST / "Halo.app"
-VERSION = "1.3.0"
+VERSION = "1.3.1"
 STEM = f"Halo-{VERSION}-macOS-arm64"
 
 
@@ -26,8 +26,8 @@ def run(*args, capture=False):
 def verify(app):
     with (app / "Contents/Info.plist").open("rb") as handle:
         info = plistlib.load(handle)
-    if (info.get("CFBundleIdentifier"), info.get("CFBundleShortVersionString"), info.get("CFBundleVersion")) != ("dev.kevin.halo", VERSION, "4"):
-        raise ValueError("Expected Halo 1.3.0 build 4 (dev.kevin.halo); run scripts/build.sh")
+    if (info.get("CFBundleIdentifier"), info.get("CFBundleShortVersionString"), info.get("CFBundleVersion")) != ("dev.kevin.halo", VERSION, "5"):
+        raise ValueError("Expected Halo 1.3.1 build 5 (dev.kevin.halo); run scripts/build.sh")
     audit_bundle(app)
     if (info.get("CFBundleExecutable"), info.get("LSMinimumSystemVersion"), info.get("LSUIElement")) != ("Halo", "14.2", True):
         raise ValueError("Unexpected executable, minimum macOS version, or menu-bar app metadata")
@@ -37,7 +37,7 @@ def verify(app):
         raise ValueError("Unexpected code-signing identifier")
     adhoc = "Signature=adhoc" in signature
     if not adhoc and "Authority=Developer ID Application:" not in signature:
-        raise ValueError("Release requires ad hoc beta or Developer ID Application signing")
+        raise ValueError("Release requires ad hoc or Developer ID Application signing")
     for executable in ["MacOS/Halo", "MacOS/MediaRemoteAdapterTestClient",
                        "Frameworks/MediaRemoteAdapter.framework/Versions/A/MediaRemoteAdapter"]:
         architectures = run("lipo", "-archs", app / "Contents" / executable, capture=True).strip().split()
@@ -100,7 +100,7 @@ def main():
             run("xcrun", "stapler", "staple", packaged)
             run("xcrun", "stapler", "validate", packaged)
         (image_root / "Applications").symlink_to("/Applications")
-        status = ("Private beta: ad hoc signed locally; not notarized. macOS may block a downloaded copy."
+        status = ("Ad hoc signed locally; not notarized. macOS may block a downloaded copy."
                   if adhoc else ("Developer ID signed and notarized." if profile else "Developer ID signed; not notarized."))
         (image_root / "README.txt").write_text(
             f"Halo {VERSION} — macOS 14.2 or later, Apple silicon (arm64).\n\n"
@@ -123,7 +123,7 @@ def main():
         for path in [zipped, dmg, sums]:
             os.replace(path, DIST / path.name)
     print(f"Created {DIST / (STEM + '.zip')} and {DIST / (STEM + '.dmg')}")
-    print("Private ad hoc beta (not notarized)." if adhoc else
+    print("Ad hoc signed (not notarized)." if adhoc else
           ("Developer ID signed and notarized." if profile else "Developer ID signed; not notarized."))
 
 
