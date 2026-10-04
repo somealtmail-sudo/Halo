@@ -1,5 +1,14 @@
 # Verification
 
+## Animated playback visibility and efficiency audit (October 3)
+
+- Compact media activity now follows playback rather than a retained paused session. Artwork and waveform fade/scale as the island resizes with a 0.38-second spring response; Reduce Motion uses a short fade. The pause badge is removed. Expanded playback controls remain available.
+- Fixed unnecessary waveform capture while an expanded Focus, Shelf, or Mirror tab hides the waveform. Capture still stops when playback pauses, the island is hidden, the screen sleeps, or Reduce Motion is enabled.
+- Reviewed timer/subscription cleanup, media helper shutdown, bounded artwork thumbnails/palette extraction, camera visibility gating, and waveform retention. The playback transition is state-driven and adds no repeating timer. Existing two-second audio detection and 120 ms pointer fallback remain for responsiveness.
+- All 34 regression tests, release build, silent media integration checks, waveform capture/cleanup, ZIP/DMG checksums, ZIP integrity, and DMG verification passed. Normal helper shutdown took 0.03 seconds; stalled-helper shutdown took 1.12 seconds. The real-tone waveform check observed 96 changing frames and flat history after release.
+- Installed and launched the updated app. Inspected the blank compact interface. Subjective animation smoothness and sleep/wake behavior still need hands-on validation; static screenshots do not establish animation quality.
+- Background measurements including the helper: before, 0.266% of one CPU core / 108.80 MiB peak RSS over 15 seconds; updated, 0.466% / 108.70 MiB over 30 seconds, with 84.44 MiB final app RSS. Both samples were low CPU with similar memory; different sample durations and system activity prevent a controlled performance comparison. These are short observations, not battery or long-term leak guarantees.
+
 Environment: macOS 27.0.1 (26A434), Apple Silicon, Swift 6.4. Local verification performed October 2–3, 2026.
 
 ## Passed
@@ -44,7 +53,7 @@ An initial 1.2 sample that overlapped duplicate-launch/UI checks measured 1.631%
 - File-picker addition was verified; cross-app drag-in/drag-out and Finder reveal still need hands-on coverage.
 - This is a locally signed build. Developer ID signing, notarization, Intel builds and older macOS versions were not tested.
 
-The synthetic integration fixture is development-only and absent from the app bundle. Its output is not presented as real user playback. Audio indicator bars are decorative, not a measured waveform.
+The synthetic integration fixture is development-only and absent from the app bundle. Its output is not presented as real user playback. Versions through 1.2 used decorative indicator bars. The current local build replaces these with an opt-in measured system audio envelope.
 
 ## Repeatable commands
 
@@ -55,3 +64,34 @@ python3 scripts/integration_test.py
 ```
 
 Integration tests launch a silent player for a few seconds, temporarily publish its known metadata, and terminate it in `finally` blocks. The fixture also has a 45-second lifetime cap in case its runner is interrupted. Run them while other players are paused.
+
+## Waveform and memory changes (October 3)
+
+- 28 unit tests passed, including silence, exact amplitude/polarity, impulse age/expiry, 3–16 line aggregation, clipping, and non-finite samples.
+- Release build and strict nested signature verification passed.
+- Native Settings UI inspected; waveform controls are visible and the line count increment/decrement updates the value. Installed app successfully stops/restarts capture on Show notch and Reduce motion toggles. Closing Settings releases its view without quitting the app. The final native waveform was visually inspected during Music playback.
+- Live Core Audio capture produced changing samples (120 changed observations in six seconds); stop cleared the history. Music was playing alongside the test tone, so this verifies live data flow rather than isolated amplitude calibration. Silence with no active sources yielded zero peak and zero changed frames.
+- Waveform history is fixed at 24 Float peaks; only waveform views observe 24 Hz updates. Capture and its timer stop when not visible/playing, asleep, or reduced motion is requested. Settings releases its hosting view on close; large media message buffers release capacity after parsing.
+- Five-second exploratory RSS samples before the final Settings-release change: 102.45 MiB app / 121.70 MiB combined with Settings open; 67.33 MiB app / 90.80 MiB combined after closing it. The older installed app was 50.72 MiB app / 63.19 MiB combined under different runtime conditions. These are not controlled before/after comparisons and do not establish a reduction in total RAM.
+- The initial Canvas implementation measured 115.83 MiB app / 136.72 MiB peak combined RSS and 10.675% of one CPU core during a ten-second active sample. Replacing per-frame SwiftUI Canvas updates with a native NSView subscriber measured 84.95 MiB app / 103.94 MiB peak combined RSS and 3.489% of one core in a subsequent ten-second live Music sample. UI/cache histories differ, so these are short observations, not guaranteed limits or a controlled benchmark.
+- Final app is installed in `~/Applications/Halo.app`, live waveform enabled, with a backup of the previous app.
+- Denied/revoked permission, hardware output changes, older macOS releases, and sleep/wake with an active tap still need manual coverage.
+
+## Album artwork waveform colors (October 3)
+
+- 32 unit tests pass, including four palette cases: dark cover brightness/hue, two distinct colors, white-background rejection, and transparent/grayscale fallback.
+- Palette extraction uses a temporary 32×32 sRGB image and 512 bounded color buckets on the existing artwork queue. Stale results use the same revision check as artwork; missing art resets the palette. Native drawing caches per-line CGColors and rebuilds them only on palette or line-count changes.
+
+## Camera mirror (October 3)
+
+- Debug/release builds, all 32 existing unit tests, and strict app signature verification passed. The bundle contains the camera usage description and camera entitlement.
+- Installed app launched successfully. Native UI inspection and a screenshot confirmed the Mirror tab, its selected state, and Enable Camera placeholder fit the expanded notch. Appearance preview was ended after inspection.
+- Session configuration/start/stop run on a serial background queue. Capture is requested only while the Mirror tab is expanded, shown, and awake; stale startup/permission callbacks cannot reactivate a closed tab. Only a video input and preview layer are used.
+- Live camera frames, permission denial/revocation, device disconnects, and capture cleanup across sleep/wake still need hands-on validation. Camera permission was not granted during this check.
+
+## Artwork delivery, expanded header, and focus controls (October 3)
+
+- All 34 unit tests pass, including extending a running deadline and extending a paused timer without resuming it. Release build passed.
+- Live media diagnostics confirmed artwork delivery and decoding after replacing the pipe's fill-length reads with single reads of available bytes.
+- Native UI inspection during Apple Music playback confirmed the expanded top header is empty, with album artwork and a single waveform in the dropdown controls. Compact header content is conditionally removed with an identity transition.
+- Native UI checks confirmed +5 minutes changes an unstarted timer from 25:00 to 30:00, extends a running timer, and changes a paused timer from 34:46 to 39:46 while retaining Resume. The 15-minute preset and new button fit the expanded Focus tab.

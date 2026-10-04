@@ -12,7 +12,7 @@ The current private beta is **ad-hoc signed, not Apple-notarized**. macOS may bl
 
 ## Use
 
-Halo lives in the menu bar and at the top of your display. Hover over the island to expand it; click the pin to keep it open. The menu bar icon opens settings or quits the app. **Settings → Size** adjusts the open and closed dimensions.
+Halo lives in the menu bar and at the top of your display. Hover over the island to expand it; click the pin to keep it open. The menu bar icon opens settings or quits the app. **Settings → Size** adjusts the open and closed dimensions. **Settings → Waveform** enables real system audio capture and adjusts waveform width, height, line thickness, and line count. Allow Halo system audio access when macOS requests it; use Retry after changing permission.
 
 ## Build locally
 
@@ -33,22 +33,26 @@ Requires Xcode with Swift 6 or later. There are no downloaded Swift package depe
 - **Quiet interface:** a blank idle notch, neutral Music/Focus/Shelf controls, and no logo or slogans in the island. DynamicLake’s compact activities and hover controls informed the design.
 - **Responsive hover:** immediate event-driven entry, a 180 ms exit grace period, and forgiving edge tracking. Hover opens the activity visible in the compact notch. Pinning keeps controls open.
 - **Size controls:** automatic camera-cutout sizing or custom closed width/height, plus independent open width/height. Settings enforce enough room for the physical camera and controls.
-- **Smooth motion:** top-anchored spring expansion, compact track announcements, artwork, and an animated playback indicator. System Reduce Motion and the app’s own preference suppress decorative animation. The bars are a playback indicator, not measured audio levels.
-- **Focus:** 5-, 25- and 50-minute sessions with pause, resume, reset, and completion sound. Uses a wall-clock deadline so sleep/wake does not stretch the timer. Sessions last until the app quits.
+- **Live waveform:** an opt-in Core Audio tap measures a rolling 120 ms peak-amplitude envelope of system audio, with 3–16 lines and adjustable dimensions/thickness. This is the combined system output, not a per-track frequency spectrum. Silence, disabled capture, and preview stay flat; no synthetic animation is substituted. Thickness is capped to fit the chosen width. Waveform lines take their colors from the current album cover, with a subtle gradient when the artwork has two prominent hues. A cached 32×32 analysis runs only when artwork changes; missing or grayscale covers use neutral bars.
+- **Smooth motion:** top-anchored spring expansion and compact track announcements. System Reduce Motion and the app’s own preference pause waveform capture.
+- **Focus:** 5-, 15-, 25- and 50-minute presets with pause, resume, reset, and completion sound. The +5 minutes button extends a running or paused session, or increases the selected duration before starting. Uses a wall-clock deadline so sleep/wake does not stretch the timer. Sessions last until the app quits.
 - **Shelf:** up to 30 file/directory references, drag in/out, file picker, Finder reveal, and remove-from-shelf. Originals remain in their folders. Shelf paths persist across launches; moved files need to be added again.
+- **Camera mirror:** open the Mirror tab and click Enable Camera to allow camera access. Shows a live, horizontally mirrored webcam preview. Camera capture stops when you leave the tab, close or hide the notch, or the display sleeps. Video is never recorded or saved. If access is denied, use Camera Settings and Retry.
 - **Battery moments:** charging/discharging and low-battery announcements, checked every 30 seconds.
 - **Display support:** uses the actual notch’s safe areas, supports a selected display, and shows an edge-attached notch on displays without a camera cutout. Joins desktop Spaces and permits fullscreen use. Repositions after display changes.
 - **Settings:** launch at login, show/hide island, hover behavior, track peeks, reduced motion, battery moments, reconnect media, and a clearly labeled visual preview.
 
 ## Background resource use
 
-Idle and paused views do not run a one-second display clock. Progress updates run only while visible; hidden views and sleeping displays stop decorative animation and hover polling. Focus completion uses a separate deadline, so hiding the notch does not stop a timer. CoreAudio fallback scans run off the main thread, without overlapping scans. Album artwork is decoded off the UI thread into a bounded thumbnail.
+Idle and paused views do not run a one-second display clock. Progress updates run only while visible; hidden views and sleeping displays stop decorative animation and hover polling. Focus completion uses a separate deadline, so hiding the notch does not stop a timer. CoreAudio fallback scans run off the main thread, without overlapping scans. Album artwork is decoded off the UI thread into a bounded thumbnail; large artwork message buffers are released after parsing. Closing Settings releases its view tree.
+
+Waveform capture keeps only 24 peak amplitudes, never audio recordings. Its callback does no heap allocation or blocking wait, and only small native waveform views redraw at up to 24 Hz, without per-frame SwiftUI layout. The tap and device are destroyed when playback stops, Halo is hidden, the display sleeps, or Reduce motion is enabled.
 
 Media commands use a bounded queue and timeouts. Quit waits briefly for helper shutdown, including a stopped helper; launching a second normal copy reuses the existing app. Halo has no update poller, account service, analytics, or network backend. See [privacy](docs/PRIVACY.md) and [verification](docs/VERIFICATION.md).
 
 ## Media compatibility
 
-macOS does not expose a stable public API for reading every other application’s track metadata. Halo bundles the BSD-licensed [MediaRemote Adapter](https://github.com/ungive/mediaremote-adapter) and runs it through the system Perl binary, following the upstream integration. This private API integration may need maintenance after macOS updates. CoreAudio activity detection remains separate from metadata/control support. No recording, microphone access, account login, server, telemetry, or network request is added by Halo.
+macOS does not expose a stable public API for reading every other application’s track metadata. Halo bundles the BSD-licensed [MediaRemote Adapter](https://github.com/ungive/mediaremote-adapter) and runs it through the system Perl binary, following the upstream integration. This private API integration may need maintenance after macOS updates. CoreAudio activity detection remains separate from metadata/control support. The optional waveform captures system audio locally using Apple’s audio permission; samples are reduced immediately and never saved. It does not access the microphone. No account login, server, telemetry, or network request is added by Halo.
 
 The system chooses its current Now Playing session. Halo controls that session; it does not independently enumerate every browser tab or every app’s queue. Player limitations, ads, live streams, or missing metadata can limit seeking/skipping. Music and browser compatibility uses the shared system protocol; live verification completed so far is listed in [docs/VERIFICATION.md](docs/VERIFICATION.md).
 
@@ -91,6 +95,7 @@ APP="$PWD/dist/Halo.app/Contents"
 | `Sources/Halo/MediaService.swift` | Media process lifecycle, transport, CoreAudio, opt-in Automation |
 | `Sources/Halo/HaloApp.swift` | App lifecycle, menu bar, nonactivating panel, display and pointer behavior |
 | `Sources/Halo/IslandView.swift` | Compact/expanded island, player, focus and shelf |
+| `Sources/Halo/CameraMirror.swift` | Camera permissions, session lifecycle and mirrored preview |
 | `Sources/Halo/AppModel.swift` | Preferences, timers, shelf, battery and announcement state |
 | `Sources/Halo/SettingsView.swift` | Preferences window and launch-at-login |
 | `Sources/HaloCore` | Testable stream, timeline and timer logic |
@@ -98,3 +103,5 @@ APP="$PWD/dist/Halo.app/Contents"
 | `Vendor/mediaremote-adapter` | Pinned third-party source; license included in app |
 
 See [research and design decisions](docs/RESEARCH.md) and [third-party notices](THIRD_PARTY_NOTICES.md).
+
+For an opt-in live waveform test, run `python3 scripts/waveform_test.py`. It plays a quiet six-second tone with silence intervals and checks for changing samples and capture cleanup. Other playing apps contribute to the combined waveform.

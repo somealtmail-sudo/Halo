@@ -4,8 +4,8 @@ import Combine
 import IOKit.ps
 import HaloCore
 
-enum IslandTab: String, CaseIterable { case music = "Now Playing", focus = "Focus", shelf = "Shelf"
-    var symbol: String { switch self { case .music: "waveform"; case .focus: "timer"; case .shelf: "tray" } }
+enum IslandTab: String, CaseIterable { case music = "Now Playing", focus = "Focus", shelf = "Shelf", mirror = "Mirror"
+    var symbol: String { switch self { case .music: "waveform"; case .focus: "timer"; case .shelf: "tray"; case .mirror: "camera" } }
 }
 
 struct ShelfItem: Identifiable {
@@ -17,6 +17,8 @@ struct ShelfItem: Identifiable {
 @MainActor
 final class AppModel: ObservableObject {
     let media = MediaService()
+    let waveform = AudioWaveform()
+    let camera = CameraMirror()
     @Published var expanded = false { didSet { reconcileClock() } }
     @Published var expandedByHover = false
     @Published var dropTargeted = false
@@ -38,7 +40,7 @@ final class AppModel: ObservableObject {
     @Published var showIsland: Bool { didSet { save(showIsland, "showIsland"); reconcileClock(); onLayoutChange?() } }
     @Published var hoverToExpand: Bool { didSet { save(hoverToExpand, "hoverToExpand") } }
     @Published var trackPeeks: Bool { didSet { save(trackPeeks, "trackPeeks") } }
-    @Published var reduceMotion: Bool { didSet { save(reduceMotion, "reduceMotion") } }
+    @Published var reduceMotion: Bool { didSet { save(reduceMotion, "reduceMotion"); reconcileWaveform() } }
     @Published var batteryAlerts: Bool { didSet { save(batteryAlerts, "batteryAlerts") } }
     @Published var directFallback: Bool { didSet { save(directFallback, "directFallback"); media.directFallbackEnabled = directFallback } }
     @Published var preferredDisplay: String { didSet { save(preferredDisplay, "preferredDisplay"); onLayoutChange?() } }
@@ -47,6 +49,11 @@ final class AppModel: ObservableObject {
     @Published var compactHeightSetting: Double { didSet { save(compactHeightSetting, "compactHeightSetting"); onLayoutChange?() } }
     @Published var expandedWidthSetting: Double { didSet { save(expandedWidthSetting, "expandedWidthSetting"); onLayoutChange?() } }
     @Published var expandedHeightSetting: Double { didSet { save(expandedHeightSetting, "expandedHeightSetting"); onLayoutChange?() } }
+    @Published var liveWaveform: Bool { didSet { save(liveWaveform, "liveWaveform"); reconcileWaveform() } }
+    @Published var waveformWidth: Double { didSet { save(waveformWidth, "waveformWidth") } }
+    @Published var waveformHeight: Double { didSet { save(waveformHeight, "waveformHeight") } }
+    @Published var waveformThickness: Double { didSet { save(waveformThickness, "waveformThickness") } }
+    @Published var waveformLineCount: Double { didSet { save(waveformLineCount, "waveformLineCount"); reconcileWaveform() } }
     var onLayoutChange: (() -> Void)?
     var onSettings: (() -> Void)?
     private var timer: Timer?
@@ -63,8 +70,14 @@ final class AppModel: ObservableObject {
     init() {
         let d = UserDefaults.standard
         d.register(defaults: ["showIsland": true, "hoverToExpand": true, "trackPeeks": true, "batteryAlerts": true,
+                              "waveformWidth": 28.0, "waveformHeight": 18.0, "waveformThickness": 2.0, "waveformLineCount": 8.0,
                               "compactWidthSetting": 220.0, "compactHeightSetting": 38.0,
                               "expandedWidthSetting": 420.0, "expandedHeightSetting": 240.0])
+        liveWaveform = d.bool(forKey: "liveWaveform")
+        waveformWidth = d.double(forKey: "waveformWidth")
+        waveformHeight = d.double(forKey: "waveformHeight")
+        waveformThickness = d.double(forKey: "waveformThickness")
+        waveformLineCount = d.double(forKey: "waveformLineCount")
         showIsland = d.bool(forKey: "showIsland")
         hoverToExpand = d.bool(forKey: "hoverToExpand")
         trackPeeks = d.bool(forKey: "trackPeeks")
@@ -101,7 +114,7 @@ final class AppModel: ObservableObject {
     var animationsActive: Bool { showIsland && systemAwake && displayAwake }
     var motion: Animation { motionReduced ? .easeOut(duration: 0.1) : .spring(response: 0.25, dampingFraction: 0.9) }
     var hasNotch: Bool { notchHeight > 0 }
-    var compactHasActivity: Bool { media.hasSession || media.isPlaying || preview || focus.isActive }
+    var compactHasActivity: Bool { playing || focus.isActive }
     private var sizing: NotchSizing {
         NotchSizing(hardwareWidth: notchWidth, hardwareHeight: notchHeight, custom: customNotchSize,
                     closedWidth: compactWidthSetting, closedHeight: compactHeightSetting,
@@ -117,6 +130,7 @@ final class AppModel: ObservableObject {
     var panelWidth: CGFloat { max(width, expandedWidth) + 48 }
     var panelHeight: CGFloat { max(height, expandedHeight) + 40 }
     var topInset: CGFloat { 0 }
+    var waveformColors: [ArtworkColor] { preview || !media.hasSession ? ArtworkPalette.fallback : media.waveformColors }
     var playing: Bool { preview || media.isPlaying }
     var displayTitle: String { preview ? "Sample track" : media.snapshot.title ?? (media.audioSources.isEmpty ? "No media playing" : "Audio active in \(media.sourceName)") }
     var displayArtist: String { preview ? "Preview" : media.snapshot.artist ?? media.sourceName }
@@ -139,6 +153,9 @@ final class AppModel: ObservableObject {
         workspaceObservers.append(workspace.addObserver(forName: NSWorkspace.screensDidWakeNotification, object: nil, queue: .main) { [weak self] _ in
             Task { @MainActor in self?.setDisplayAwake(true) }
         })
+        workspaceObservers.append(workspace.addObserver(forName: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification, object: nil, queue: .main) { [weak self] _ in
+            Task { @MainActor in self?.reconcileWaveform() }
+        })
         reconcileClock()
         reconcileFocusDeadline()
         reconcileBatteryTimer()
@@ -151,6 +168,8 @@ final class AppModel: ObservableObject {
         batteryTimer?.invalidate(); batteryTimer = nil
         for observer in workspaceObservers { NSWorkspace.shared.notificationCenter.removeObserver(observer) }
         workspaceObservers.removeAll()
+        waveform.stop()
+        camera.reconcile(active: false)
         media.stop(); bannerTask?.cancel(); bannerTask = nil
     }
 
@@ -172,7 +191,16 @@ final class AppModel: ObservableObject {
         reconcileClock()
     }
 
+    func reconcileWaveform() {
+        let count = waveformLineCount.isFinite ? Int(min(16, max(3, waveformLineCount))) : 8
+        let visible = expanded ? selectedTab == .music : !focus.isActive
+        waveform.reconcile(active: started && animationsActive && media.isPlaying && !preview && visible,
+                           enabled: liveWaveform, count: count, reduced: motionReduced)
+    }
+
     private func reconcileClock() {
+        reconcileWaveform()
+        camera.reconcile(active: started && animationsActive && expanded && selectedTab == .mirror)
         // The compact header displays a running focus clock; playback position is
         // visible only in the expanded Music tab. All other states need no 1 Hz redraw.
         let needsClock = started && systemAwake && displayAwake && showIsland &&
@@ -257,6 +285,15 @@ final class AppModel: ObservableObject {
     }
     func startFocus() { now = Date(); focus.start(minutes: focusMinutes, now: now) }
     func toggleFocus() { now = Date(); if focus.isRunning { focus.pause(now: now) } else if focus.isPaused { focus.resume(now: now) } else { startFocus() } }
+    func addFocusMinutes() {
+        now = Date()
+        if focus.isActive {
+            focus.add(minutes: 5)
+        } else {
+            focusMinutes += 5
+            if focus.completed { focus.reset() }
+        }
+    }
 
     func addFiles(_ urls: [URL]) {
         for url in urls where url.isFileURL {

@@ -11,6 +11,15 @@ let format = AVAudioFormat(standardFormatWithSampleRate: 44100, channels: 2)!
 let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 44100)!
 buffer.frameLength = 44100
 for channel in 0..<2 { buffer.floatChannelData![channel].initialize(repeating: 0, count: 44100) }
+// Opt-in audible test: a quiet 440 Hz tone with alternating amplitude and silence.
+if CommandLine.arguments.contains("--waveform-tone") {
+    for frame in 0..<44100 {
+        let time = Double(frame) / 44100
+        let amplitude = time < 0.3 ? 0.08 : (time < 0.6 ? 0.02 : 0)
+        let value = Float(amplitude * sin(2 * Double.pi * 440 * time))
+        for channel in 0..<2 { buffer.floatChannelData![channel][frame] = value }
+    }
+}
 engine.attach(player)
 engine.connect(player, to: engine.mainMixerNode, format: format)
 player.scheduleBuffer(buffer, at: nil, options: .loops)

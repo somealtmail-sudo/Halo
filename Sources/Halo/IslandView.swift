@@ -2,6 +2,7 @@ import SwiftUI
 import AppKit
 import UniformTypeIdentifiers
 import HaloCore
+import Combine
 
 let haloSecondary = Color.white.opacity(0.55)
 
@@ -43,6 +44,7 @@ struct IslandView: View {
                         case .music: PlayerView(model: model)
                         case .focus: FocusView(model: model)
                         case .shelf: ShelfView(model: model)
+                        case .mirror: CameraMirrorView(camera: model.camera)
                         }
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -64,6 +66,7 @@ struct IslandView: View {
         .clipShape(shape)
         .overlay(shape.stroke(dropTarget ? .white.opacity(0.7) : .clear, lineWidth: 1.5))
         .shadow(color: .black.opacity(model.expanded ? 0.35 : 0.12), radius: model.expanded ? 14 : 3, x: 0, y: 5)
+        .animation(model.motionReduced ? .easeOut(duration: 0.1) : .spring(response: 0.38, dampingFraction: 0.86), value: model.compactHasActivity)
         .foregroundStyle(.white)
         .preferredColorScheme(.dark)
         .onDrop(of: [UTType.fileURL], isTargeted: $dropTarget) { providers in
@@ -89,13 +92,32 @@ struct IslandView: View {
     private var shape: NotchShape { NotchShape(expanded: model.expanded) }
 
     private var header: some View {
+        Group {
+            if model.expanded {
+                Color.clear
+            } else {
+                compactHeader
+                    .transition(.identity)
+            }
+        }
+        .frame(height: model.headerHeight)
+        .contentShape(Rectangle())
+        .onTapGesture { model.activateHeader() }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Open controls")
+        .accessibilityAddTraits(.isButton)
+        .accessibilityAction { model.activateHeader() }
+    }
+
+    private var compactHeader: some View {
         HStack(spacing: 0) {
             Group {
                 if model.compactHasActivity {
                     if model.focus.isActive {
                         Image(systemName: "timer").font(.system(size: 14))
-                    } else if model.media.hasSession || model.preview || !model.media.audioSources.isEmpty {
+                    } else if model.playing {
                         ArtworkView(model: model, size: 21)
+                            .transition(compactMediaTransition)
                     }
                 }
             }.frame(maxWidth: .infinity)
@@ -106,21 +128,17 @@ struct IslandView: View {
                         Text(clockText(model.focus.remaining(at: model.now)))
                             .font(.system(size: 10, weight: .medium, design: .monospaced))
                     } else if model.playing {
-                        ActivityBars(playing: true, reduced: model.motionReduced, active: model.animationsActive).frame(width: 22, height: 16)
-                    } else if model.media.hasSession {
-                        Image(systemName: "pause.fill").font(.system(size: 10)).foregroundStyle(haloSecondary)
+                        ActivityBars(waveform: model.waveform, width: min(model.waveformWidth, (Double(model.compactWidth) - Double(model.notchWidth) - 30) / 2), height: min(model.waveformHeight, Double(model.headerHeight) - 8), thickness: model.waveformThickness, colors: model.waveformColors)
+                            .transition(compactMediaTransition)
                     }
                 }
             }.frame(maxWidth: .infinity)
         }
         .padding(.horizontal, model.compactHasActivity ? 15 : 0)
-        .frame(height: model.headerHeight)
-        .contentShape(Rectangle())
-        .onTapGesture { model.activateHeader() }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Open controls")
-        .accessibilityAddTraits(.isButton)
-        .accessibilityAction { model.activateHeader() }
+    }
+
+    private var compactMediaTransition: AnyTransition {
+        model.motionReduced ? .opacity : .opacity.combined(with: .scale(scale: 0.75))
     }
 
     private var toolbar: some View {
@@ -177,28 +195,75 @@ struct ArtworkView: View {
 }
 
 struct ActivityBars: View {
-    let playing: Bool
-    let reduced: Bool
-    let active: Bool
-    var body: some View {
-        Group {
-            if playing && !reduced && active {
-                TimelineView(.animation(minimumInterval: 1.0 / 24)) { context in
-                    bars(at: context.date)
-                }
-            } else {
-                bars(at: nil)
-            }
-        }.accessibilityLabel(playing ? "Playback active" : "Playback paused")
+    let waveform: AudioWaveform
+    var width: Double
+    var height: Double
+    var thickness: Double
+    var colors: [ArtworkColor]
+
+    private func bounded(_ value: Double, _ range: ClosedRange<Double>) -> Double {
+        value.isFinite ? min(range.upperBound, max(range.lowerBound, value)) : range.lowerBound
     }
 
-    private func bars(at date: Date?) -> some View {
-        HStack(alignment: .center, spacing: 2.5) {
-            ForEach(0..<4) { index in
-                let phase = (date?.timeIntervalSinceReferenceDate ?? 0) * 3.2 + Double(index) * 1.4
-                let height = date != nil ? 4 + (sin(phase) + 1) * 5.5 : Double([5, 10, 15, 9][index])
-                Capsule().fill(.white.opacity(0.85)).frame(width: 2.5, height: height)
-            }
+    var body: some View {
+        WaveformDrawing(waveform: waveform, thickness: bounded(thickness, 0.5...4), colors: colors)
+            .frame(width: bounded(width, 16...40), height: bounded(height, 8...28))
+            .accessibilityLabel("Live system audio waveform")
+    }
+}
+
+/// Samples invalidate only this tiny native view, not SwiftUI layout or Canvas textures.
+private struct WaveformDrawing: NSViewRepresentable {
+    let waveform: AudioWaveform
+    let thickness: Double
+    let colors: [ArtworkColor]
+    func makeNSView(context: Context) -> WaveformDrawingView {
+        let view = WaveformDrawingView()
+        view.subscription = waveform.$levels.sink { [weak view] levels in
+            if view?.levels.count != levels.count { view?.rebuildColors(count: levels.count) }
+            view?.levels = levels
+            view?.needsDisplay = true
+        }
+        return view
+    }
+    func updateNSView(_ view: WaveformDrawingView, context: Context) {
+        if view.colors != colors { view.colors = colors; view.rebuildColors(count: view.levels.count); view.needsDisplay = true }
+        if view.thickness != thickness { view.thickness = thickness; view.needsDisplay = true }
+    }
+    static func dismantleNSView(_ view: WaveformDrawingView, coordinator: ()) {
+        view.subscription = nil
+    }
+}
+
+private final class WaveformDrawingView: NSView {
+    var subscription: AnyCancellable?
+    var levels: [Float] = []
+    var thickness: Double = 2
+    var colors = ArtworkPalette.fallback
+    private var lineColors: [CGColor] = []
+    func rebuildColors(count: Int) {
+        let first = colors.first ?? ArtworkPalette.fallback[0]
+        let last = colors.last ?? first
+        lineColors = (0..<count).map { index in
+            let color = first.blended(with: last, amount: Double(index) / Double(max(1, count - 1)))
+            return NSColor(srgbRed: color.red, green: color.green, blue: color.blue, alpha: 1).cgColor
+        }
+    }
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+    override func draw(_ dirtyRect: NSRect) {
+        guard let context = NSGraphicsContext.current?.cgContext, !levels.isEmpty else { return }
+        let pitch = bounds.width / Double(levels.count)
+        let stroke = min(thickness, pitch * 0.8)
+        context.setLineWidth(stroke)
+        context.setLineCap(.round)
+        for (index, level) in levels.enumerated() {
+            let length = max(0.01, Double(level) * bounds.height - stroke)
+            let x = bounds.minX + (Double(index) + 0.5) * pitch
+            context.setStrokeColor(lineColors[index])
+            context.beginPath()
+            context.move(to: CGPoint(x: x, y: bounds.midY - length / 2))
+            context.addLine(to: CGPoint(x: x, y: bounds.midY + length / 2))
+            context.strokePath()
         }
     }
 }
@@ -264,7 +329,7 @@ struct PlayerView: View {
                 }.accessibilityLabel(model.playing ? "Pause" : "Play").disabled(model.preview || !model.media.canControl)
                 transport("forward.end.fill", label: "Next track", command: 4)
                 Spacer(minLength: 0)
-                ActivityBars(playing: model.playing, reduced: model.motionReduced, active: model.animationsActive).frame(width: 28, height: 18)
+                ActivityBars(waveform: model.waveform, width: model.waveformWidth, height: model.waveformHeight, thickness: model.waveformThickness, colors: model.waveformColors)
             }.buttonStyle(.plain).foregroundStyle(haloSecondary)
         }
     }
@@ -300,7 +365,7 @@ struct PlayerView: View {
                     Text("Track details unavailable").font(.system(size: 11)).foregroundStyle(haloSecondary)
                 }
                 Spacer(minLength: 0)
-                ActivityBars(playing: true, reduced: model.motionReduced, active: model.animationsActive).frame(width: 22)
+                ActivityBars(waveform: model.waveform, width: model.waveformWidth, height: model.waveformHeight, thickness: model.waveformThickness, colors: model.waveformColors)
             }
             HStack {
                 Text("\(model.media.audioSources.count) active \(model.media.audioSources.count == 1 ? "app" : "apps")").font(.system(size: 10)).foregroundStyle(haloSecondary)
@@ -330,9 +395,12 @@ struct FocusView: View {
             VStack(alignment: .leading, spacing: 11) {
                 if !model.focus.isActive {
                     HStack(spacing: 5) {
-                        ForEach([5, 25, 50], id: \.self) { minutes in
-                            Button("\(minutes)m") { model.focusMinutes = minutes }
-                                .font(.system(size: 11)).buttonStyle(.plain).padding(.horizontal, 9).padding(.vertical, 6)
+                        ForEach([5, 15, 25, 50], id: \.self) { minutes in
+                            Button("\(minutes)m") {
+                                model.focusMinutes = minutes
+                                if model.focus.completed { model.focus.reset() }
+                            }
+                                .font(.system(size: 11)).buttonStyle(.plain).padding(.horizontal, 7).padding(.vertical, 6)
                                 .foregroundStyle(model.focusMinutes == minutes ? .white : haloSecondary)
                                 .background(model.focusMinutes == minutes ? .white.opacity(0.18) : .white.opacity(0.07), in: RoundedRectangle(cornerRadius: 6))
                                 .accessibilityLabel("\(minutes) minute timer")
@@ -350,6 +418,11 @@ struct FocusView: View {
                             .buttonStyle(.plain).foregroundStyle(haloSecondary).help("Reset timer").accessibilityLabel("Reset timer")
                     }
                 }
+                Button("+5 minutes") { model.addFocusMinutes() }
+                    .font(.system(size: 11, weight: .medium)).buttonStyle(.plain)
+                    .padding(.horizontal, 10).padding(.vertical, 6)
+                    .background(.white.opacity(0.1), in: RoundedRectangle(cornerRadius: 6))
+                    .accessibilityLabel("Add five minutes to the focus timer")
             }
             Spacer(minLength: 0)
         }

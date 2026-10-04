@@ -15,7 +15,7 @@ enum HaloMain {
 }
 
 @MainActor
-final class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     let model = AppModel()
     private var island: IslandController?
     private var statusItem: NSStatusItem?
@@ -40,6 +40,37 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             print(controller.diagnosticDescription())
             controller.stop()
             NSApp.terminate(nil)
+            return
+        }
+        if CommandLine.arguments.contains("--waveform-diagnostics") {
+            model.waveform.reconcile(active: true, enabled: true, count: 8, reduced: false)
+            Task { @MainActor in
+                var peak: Float = 0
+                var changes = 0
+                var previous = model.waveform.levels
+                for _ in 0..<120 {
+                    try? await Task.sleep(for: .milliseconds(50))
+                    let levels = model.waveform.levels
+                    peak = max(peak, levels.max() ?? 0)
+                    if levels != previous { changes += 1 }
+                    previous = levels
+                }
+                print("Waveform: \(model.waveform.status); peak: \(peak); changed frames: \(changes)")
+                model.waveform.stop()
+                print("Capture released; flat: \(model.waveform.levels.allSatisfy { $0 == 0 })")
+                NSApp.terminate(nil)
+            }
+            return
+        }
+        if CommandLine.arguments.contains("--media-diagnostics") {
+            model.media.start()
+            Task { @MainActor in
+                try? await Task.sleep(for: .seconds(4))
+                let media = model.media
+                print("Media: \(media.adapterStatus); backend: \(media.backend.rawValue); session: \(media.hasSession); artwork bytes: \(media.snapshot.artworkData?.count ?? 0); decoded artwork: \(media.artwork != nil); preview: \(model.preview)")
+                media.stop()
+                NSApp.terminate(nil)
+            }
             return
         }
         if CommandLine.arguments.contains("--diagnostics") {
@@ -125,9 +156,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func reconnectMedia() { model.media.reconnect() }
     @objc private func quit() { NSApp.terminate(nil) }
 
+    func windowWillClose(_ notification: Notification) {
+        guard let window = notification.object as? NSWindow, window === settings else { return }
+        // Recreate on demand instead of retaining the entire SwiftUI settings tree.
+        window.contentView = nil
+        settings = nil
+    }
+
     @objc func openSettings() {
         if settings == nil {
             let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 520, height: 600), styleMask: [.titled, .closable, .miniaturizable, .fullSizeContentView], backing: .buffered, defer: false)
+            window.delegate = self
             window.title = "Halo"
             window.titlebarAppearsTransparent = true
             window.titleVisibility = .hidden
