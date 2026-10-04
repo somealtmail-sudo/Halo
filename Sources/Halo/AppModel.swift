@@ -114,7 +114,7 @@ final class AppModel: ObservableObject {
     var animationsActive: Bool { showIsland && systemAwake && displayAwake }
     var motion: Animation { motionReduced ? .easeOut(duration: 0.1) : .spring(response: 0.25, dampingFraction: 0.9) }
     var hasNotch: Bool { notchHeight > 0 }
-    var compactHasActivity: Bool { media.hasSession || media.isPlaying || preview || focus.isActive }
+    var compactHasActivity: Bool { playing || focus.isActive }
     private var sizing: NotchSizing {
         NotchSizing(hardwareWidth: notchWidth, hardwareHeight: notchHeight, custom: customNotchSize,
                     closedWidth: compactWidthSetting, closedHeight: compactHeightSetting,
@@ -193,7 +193,7 @@ final class AppModel: ObservableObject {
 
     func reconcileWaveform() {
         let count = waveformLineCount.isFinite ? Int(min(16, max(3, waveformLineCount))) : 8
-        let visible = !focus.isActive || (expanded && selectedTab == .music)
+        let visible = expanded ? selectedTab == .music : !focus.isActive
         waveform.reconcile(active: started && animationsActive && media.isPlaying && !preview && visible,
                            enabled: liveWaveform, count: count, reduced: motionReduced)
     }

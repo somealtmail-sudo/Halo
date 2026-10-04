@@ -66,6 +66,7 @@ struct IslandView: View {
         .clipShape(shape)
         .overlay(shape.stroke(dropTarget ? .white.opacity(0.7) : .clear, lineWidth: 1.5))
         .shadow(color: .black.opacity(model.expanded ? 0.35 : 0.12), radius: model.expanded ? 14 : 3, x: 0, y: 5)
+        .animation(model.motionReduced ? .easeOut(duration: 0.1) : .spring(response: 0.38, dampingFraction: 0.86), value: model.compactHasActivity)
         .foregroundStyle(.white)
         .preferredColorScheme(.dark)
         .onDrop(of: [UTType.fileURL], isTargeted: $dropTarget) { providers in
@@ -114,8 +115,9 @@ struct IslandView: View {
                 if model.compactHasActivity {
                     if model.focus.isActive {
                         Image(systemName: "timer").font(.system(size: 14))
-                    } else if model.media.hasSession || model.preview || !model.media.audioSources.isEmpty {
+                    } else if model.playing {
                         ArtworkView(model: model, size: 21)
+                            .transition(compactMediaTransition)
                     }
                 }
             }.frame(maxWidth: .infinity)
@@ -127,13 +129,16 @@ struct IslandView: View {
                             .font(.system(size: 10, weight: .medium, design: .monospaced))
                     } else if model.playing {
                         ActivityBars(waveform: model.waveform, width: min(model.waveformWidth, (model.compactWidth - model.notchWidth - 30) / 2), height: min(model.waveformHeight, model.headerHeight - 8), thickness: model.waveformThickness, colors: model.waveformColors)
-                    } else if model.media.hasSession {
-                        Image(systemName: "pause.fill").font(.system(size: 10)).foregroundStyle(haloSecondary)
+                            .transition(compactMediaTransition)
                     }
                 }
             }.frame(maxWidth: .infinity)
         }
         .padding(.horizontal, model.compactHasActivity ? 15 : 0)
+    }
+
+    private var compactMediaTransition: AnyTransition {
+        model.motionReduced ? .opacity : .opacity.combined(with: .scale(scale: 0.75))
     }
 
     private var toolbar: some View {

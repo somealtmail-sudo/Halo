@@ -1,5 +1,14 @@
 # Verification
 
+## Animated playback visibility and efficiency audit (October 3)
+
+- Compact media activity now follows playback rather than a retained paused session. Artwork and waveform fade/scale as the island resizes with a 0.38-second spring response; Reduce Motion uses a short fade. The pause badge is removed. Expanded playback controls remain available.
+- Fixed unnecessary waveform capture while an expanded Focus, Shelf, or Mirror tab hides the waveform. Capture still stops when playback pauses, the island is hidden, the screen sleeps, or Reduce Motion is enabled.
+- Reviewed timer/subscription cleanup, media helper shutdown, bounded artwork thumbnails/palette extraction, camera visibility gating, and waveform retention. The playback transition is state-driven and adds no repeating timer. Existing two-second audio detection and 120 ms pointer fallback remain for responsiveness.
+- All 34 regression tests, release build, silent media integration checks, waveform capture/cleanup, ZIP/DMG checksums, ZIP integrity, and DMG verification passed. Normal helper shutdown took 0.03 seconds; stalled-helper shutdown took 1.12 seconds. The real-tone waveform check observed 96 changing frames and flat history after release.
+- Installed and launched the updated app. Inspected the blank compact interface. Subjective animation smoothness and sleep/wake behavior still need hands-on validation; static screenshots do not establish animation quality.
+- Background measurements including the helper: before, 0.266% of one CPU core / 108.80 MiB peak RSS over 15 seconds; updated, 0.466% / 108.70 MiB over 30 seconds, with 84.44 MiB final app RSS. Both samples were low CPU with similar memory; different sample durations and system activity prevent a controlled performance comparison. These are short observations, not battery or long-term leak guarantees.
+
 Environment: macOS 27.0.1 (26A434), Apple Silicon, Swift 6.4. Local verification performed October 2–3, 2026.
 
 ## Passed
