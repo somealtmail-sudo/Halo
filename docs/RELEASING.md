@@ -1,6 +1,6 @@
 # Releasing Halo
 
-Halo 1.2.0 (build 3) targets Apple silicon and macOS 14.2 or later. The default build is a **private ad hoc beta**, signed locally and not notarized. The current development machine has no Developer ID Application identity. A downloadable ad hoc build can be blocked by Gatekeeper; these scripts do not change system security settings.
+Halo 1.3.0 (build 4) targets Apple silicon and macOS 14.2 or later. The default build is a **private ad hoc beta**, signed locally and not notarized. The current development machine has no Developer ID Application identity. A downloadable ad hoc build can be blocked by Gatekeeper; these scripts do not change system security settings.
 
 ## Local beta
 
@@ -13,12 +13,12 @@ python3 scripts/integration_test.py
 python3 scripts/release.py
 ```
 
-`release.py` packages the existing `dist/Halo.app`; it does not compile or install anything. It verifies the app's bundle identifier, version, minimum OS, strict nested signature, required portable resources, and arm64 architecture of the main executable, media framework, and helper. It rejects build-machine library dependencies and unsupported or mixed signing types. Build on Apple silicon. Mixed or Intel architectures are rejected rather than mislabeled.
+`release.py` packages the existing `dist/Halo.app`; it does not compile or install anything. It verifies the app's bundle identifier, version, minimum OS, strict nested signature, required portable resources, and arm64 architecture of the main executable, media framework, and helper. It rejects build-machine library dependencies and unsupported or mixed signing types. Bundling strips debug symbols and local extended attributes before signing. Both bundling and packaging run `scripts/privacy_check.py`, which rejects unexpected payload files, unrecognized symlinks, embedded home-directory paths, and common credential patterns. ZIP creation omits resource forks and extended attributes. Build on Apple silicon. Mixed or Intel architectures are rejected rather than mislabeled.
 
 Outputs in `dist/`:
 
-- `Halo-1.2.0-macOS-arm64.zip`, containing `Halo.app`.
-- `Halo-1.2.0-macOS-arm64.dmg`, containing the app, an Applications shortcut, and a short installation README.
+- `Halo-1.3.0-macOS-arm64.zip`, containing `Halo.app`.
+- `Halo-1.3.0-macOS-arm64.dmg`, containing the app, an Applications shortcut, and a short installation README.
 - `SHA256SUMS.txt`, covering both final archives.
 
 Quit a running Halo, drag the app to Applications, then launch it. The app runs in the menu bar. Login startup is an explicit Settings toggle. Installation and startup registration are separate from packaging.

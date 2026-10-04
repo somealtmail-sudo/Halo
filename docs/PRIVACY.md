@@ -12,3 +12,7 @@ Halo runs locally. It has no account, analytics, advertising, or crash-upload se
 - Launch at login is optional and uses macOS Service Management.
 
 GitHub hosts source and release downloads. Halo does not poll GitHub or automatically download updates. Install a newer release manually after quitting the running app.
+
+Release bundles contain only the executable, media helper/framework, icon, required property lists, signatures, and third-party license. They do not include developer preferences, shelf paths, screenshots, logs, source history, or credentials. Debug symbols containing build-machine paths are stripped before signing; an automated bundle allowlist and path/credential-pattern check run during both building and packaging. ZIP archives omit local extended attributes and resource forks.
+
+The existing `dev.kevin.halo` application identifier and third-party license attribution remain visible. The identifier is retained for update, preference, and permission continuity. GitHub source history separately contains commit-author metadata; artifact sanitization does not anonymize that history. Diagnostics are opt-in and may identify locally running media applications or displays, so review diagnostic output before sharing it.

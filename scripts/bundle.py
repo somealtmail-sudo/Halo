@@ -29,8 +29,8 @@ try:
         plistlib.dump({
             "CFBundleName": "Halo", "CFBundleDisplayName": "Halo",
             "CFBundleIdentifier": "dev.kevin.halo", "CFBundleExecutable": "Halo",
-            "CFBundlePackageType": "APPL", "CFBundleShortVersionString": "1.2.0",
-            "CFBundleVersion": "3", "LSMinimumSystemVersion": "14.2",
+            "CFBundlePackageType": "APPL", "CFBundleShortVersionString": "1.3.0",
+            "CFBundleVersion": "4", "LSMinimumSystemVersion": "14.2",
             "LSUIElement": True, "NSHighResolutionCapable": True,
             "NSAudioCaptureUsageDescription": "Halo uses system audio samples to display an accurate live waveform. Audio is never recorded or saved.",
             "NSCameraUsageDescription": "Halo shows a live mirrored camera preview in the notch. Video is never recorded or saved.",
@@ -65,6 +65,11 @@ try:
     icon_dir.mkdir(parents=True, exist_ok=True)
     run("swift", ROOT / "scripts/icon.swift", icon_dir)
     run("iconutil", "-c", "icns", icon_dir, "-o", CONTENTS / "Resources/Halo.icns")
+    # Swift release binaries can retain object/source paths in debug symbols.
+    # Remove them before signing, and do not ship local extended attributes.
+    for executable in (CONTENTS / "MacOS/Halo", CONTENTS / "MacOS/MediaRemoteAdapterTestClient", VERSION / "MediaRemoteAdapter"):
+        run("xcrun", "strip", "-S", executable)
+    run("xattr", "-cr", APP)
     identity = os.environ.get("HALO_SIGNING_IDENTITY", "-").strip()
     if not identity:
         raise ValueError("HALO_SIGNING_IDENTITY must be '-' or a signing identity")
@@ -75,6 +80,7 @@ try:
     run(*signing, CONTENTS / "MacOS/MediaRemoteAdapterTestClient")
     run(*signing, "--entitlements", ROOT / "scripts/Halo.entitlements", APP)
     run("codesign", "--verify", "--deep", "--strict", APP)
+    run("python3", ROOT / "scripts/privacy_check.py", APP)
     FINAL_APP.parent.mkdir(parents=True, exist_ok=True)
     previous = None
     if FINAL_APP.exists():
