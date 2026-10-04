@@ -128,7 +128,7 @@ struct IslandView: View {
                         Text(clockText(model.focus.remaining(at: model.now)))
                             .font(.system(size: 10, weight: .medium, design: .monospaced))
                     } else if model.playing {
-                        ActivityBars(waveform: model.waveform, width: min(model.waveformWidth, (model.compactWidth - model.notchWidth - 30) / 2), height: min(model.waveformHeight, model.headerHeight - 8), thickness: model.waveformThickness, colors: model.waveformColors)
+                        ActivityBars(waveform: model.waveform, width: min(model.waveformWidth, (Double(model.compactWidth) - Double(model.notchWidth) - 30) / 2), height: min(model.waveformHeight, Double(model.headerHeight) - 8), thickness: model.waveformThickness, colors: model.waveformColors)
                             .transition(compactMediaTransition)
                     }
                 }
