@@ -11,13 +11,18 @@ public struct ArtworkColor: Equatable, Sendable {
              blue: blue + (other.blue - blue) * amount)
     }
 
+    fileprivate func distance(to other: Self) -> Double {
+        let r = red - other.red, g = green - other.green, b = blue - other.blue
+        return (r * r + g * g + b * b).squareRoot()
+    }
+
     private var brightness: Double { max(red, green, blue) }
     fileprivate var readable: Self {
-        let scale = max(1, 0.8 / max(0.01, brightness))
+        let scale = max(1, 0.5 / max(0.01, brightness))
         let lifted = Self(red: min(1, red * scale), green: min(1, green * scale), blue: min(1, blue * scale))
         // Preserve the hue while giving deep blues enough contrast on the black island.
         let luminance = lifted.red * 0.2126 + lifted.green * 0.7152 + lifted.blue * 0.0722
-        return lifted.blended(with: Self(red: 1, green: 1, blue: 1), amount: max(0, (0.3 - luminance) / (1 - luminance)))
+        return lifted.blended(with: Self(red: 1, green: 1, blue: 1), amount: max(0, (0.16 - luminance) / (1 - luminance)))
     }
 }
 
@@ -54,23 +59,40 @@ public enum ArtworkPalette {
             let b = min(1, Double(pixels[offset + 2]) / (255 * alpha))
             let maximum = max(r, g, b)
             let saturation = (maximum - min(r, g, b)) / max(0.01, maximum)
-            // Don't let black borders, white typography, or gray backgrounds mask the cover's hues.
-            guard maximum > 0.08, saturation > 0.15 else { continue }
+            // Ignore neutral borders and typography, but retain muted artwork hues.
+            guard maximum > 0.06, saturation > 0.04 else { continue }
             let index = min(7, Int(r * 8)) * 64 + min(7, Int(g * 8)) * 8 + min(7, Int(b * 8))
-            let weight = alpha * (0.25 + saturation)
+            let weight = alpha * (0.9 + 0.1 * saturation)
             buckets[index].weight += weight
             buckets[index].red += r * weight
             buckets[index].green += g * weight
             buckets[index].blue += b * weight
         }
-        guard let dominant = buckets.max(by: { $0.weight < $1.weight }), dominant.weight > 0 else { return fallback }
-        let primary = dominant.color.readable
-        let secondary = buckets.filter { bucket in
-            guard bucket.weight >= dominant.weight * 0.2 else { return false }
-            let color = bucket.color.readable
-            let distance = abs(color.red - primary.red) + abs(color.green - primary.green) + abs(color.blue - primary.blue)
-            return distance > 0.65
-        }.max(by: { $0.weight < $1.weight })
-        return secondary.map { [primary, $0.color.readable] } ?? [primary]
+        // Quantization can split a large region across adjacent bins. Compare
+        // neighborhoods by coverage, keeping averages of the actual sampled colors.
+        let occupied = buckets.filter { $0.weight > 0 }
+        guard !occupied.isEmpty else { return fallback }
+        func strongest(in candidates: [Bucket]) -> Bucket? {
+            candidates.map { seed in
+                var cluster = Bucket()
+                for bucket in candidates where seed.color.distance(to: bucket.color) < 0.22 {
+                    cluster.weight += bucket.weight
+                    cluster.red += bucket.red
+                    cluster.green += bucket.green
+                    cluster.blue += bucket.blue
+                }
+                return cluster
+            }.max { $0.weight < $1.weight }
+        }
+        guard let dominant = strongest(in: occupied) else { return fallback }
+        let remaining = occupied.filter { $0.color.distance(to: dominant.color) > 0.28 }
+        let secondary = strongest(in: remaining)
+        let totalWeight = occupied.reduce(0) { $0 + $1.weight }
+        // Small logos and isolated details should not supply half the gradient.
+        if let secondary, secondary.weight >= dominant.weight * 0.25,
+           secondary.weight >= totalWeight * 0.12 {
+            return [dominant.color.readable, secondary.color.readable]
+        }
+        return [dominant.color.readable]
     }
 }
