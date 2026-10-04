@@ -19,7 +19,7 @@ The prior locally built executable retained source and object paths in debug sym
 
 ## Remaining visible identifiers and scope
 
-The stable `dev.kevin.halo` identifier is retained to preserve upgrades, preferences, and permission continuity. Required upstream license attribution remains. Git author metadata remains in the private repository's history; source-history anonymization was not performed. Repository visibility stays private. These artifacts are not an anonymous distribution of the project's authorship.
+The stable `dev.kevin.halo` identifier is retained to preserve upgrades, preferences, and permission continuity. Required upstream license attribution remains. Git author metadata remains in the repository's history; source-history anonymization was not performed. The repository was private during the 1.3.0 audit and became public for the 1.3.1 release. These artifacts are not an anonymous distribution of the project's authorship.
 
 ## Validation
 
