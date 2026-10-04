@@ -6,9 +6,9 @@ A native SwiftUI + AppKit island for your Mac. Built and tested on **macOS 27.0.
 
 ## Download
 
-Get the **DMG or ZIP** from the [private GitHub releases](https://github.com/somealtmail-sudo/Halo/releases). Repository access and GitHub sign-in are required. Quit Halo before replacing it, drag `Halo.app` into Applications, then open it. The download includes the media helper; no terminal setup or separate dependencies are needed.
+Get the **DMG or ZIP** from the [GitHub releases](https://github.com/somealtmail-sudo/Halo/releases). Quit Halo before replacing it, drag `Halo.app` into Applications, then open it. The download includes the media helper; no terminal setup or separate dependencies are needed.
 
-The current private beta is **ad-hoc signed, not Apple-notarized**. macOS may block a downloaded copy; this is not a Developer ID release. The [release guide](docs/RELEASING.md) documents the remaining signing requirements. Minimum deployment target: macOS 14.2 on Apple silicon; live runtime validation: macOS 27.0.1.
+The current public release is **ad-hoc signed, not Apple-notarized**. macOS may block a downloaded copy; this is not a Developer ID release. The [release guide](docs/RELEASING.md) documents the remaining signing requirements. Minimum deployment target: macOS 14.2 on Apple silicon; live runtime validation: macOS 27.0.1.
 
 ## Use
 
