@@ -103,3 +103,12 @@ Integration tests launch a silent player for a few seconds, temporarily publish 
 - The optimized build, ZIP/DMG SHA-256 checksums, ZIP integrity, extracted-app privacy audit and strict nested signatures, and DMG verification passed.
 - Local integration checks passed for CoreAudio detection, Now Playing metadata, play/pause, seeking, and next/previous track commands. Lifecycle checks were skipped because the installed Halo was running.
 - Built with Xcode 27.0 (27A266a), Swift 6.4, on macOS 27.0.1. Artifacts are ad-hoc signed and not notarized. Fresh-machine acceptance and live visual matching were not verified in this update.
+
+
+## 1.4.0 Notes validation — 2026-10-04
+
+- All 40 Swift tests and six release privacy tests passed. New tests verify an empty scratchpad, multiline/Unicode persistence across store instances, and clearing without changing other preferences.
+- Native UI inspection confirmed the Notes layout, multiline typing, the clear-confirmation dialog, clearing a temporary fixture, and restoration of the saved note after quitting and relaunching Halo. Standard Edit menu commands are available. Pointer-leave behavior while typing has code coverage through the existing pinned hover behavior, but was not separately exercised with live pointer movement.
+- The optimized build, archive checksums, ZIP integrity, extracted-app privacy audit and strict nested signatures, and DMG verification passed.
+- Local media detection, metadata, playback, seeking, and next/previous integration checks passed. Helper lifecycle checks were skipped while Halo was running.
+- Release remains arm64/macOS 14.2+, ad-hoc signed, and not notarized. Fresh-machine Gatekeeper acceptance was not tested.

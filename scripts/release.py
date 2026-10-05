@@ -12,7 +12,7 @@ from privacy_check import audit_bundle
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 DIST = ROOT / "dist"
 APP = DIST / "Halo.app"
-VERSION = "1.3.1"
+VERSION = "1.4.0"
 STEM = f"Halo-{VERSION}-macOS-arm64"
 
 
@@ -26,8 +26,8 @@ def run(*args, capture=False):
 def verify(app):
     with (app / "Contents/Info.plist").open("rb") as handle:
         info = plistlib.load(handle)
-    if (info.get("CFBundleIdentifier"), info.get("CFBundleShortVersionString"), info.get("CFBundleVersion")) != ("dev.kevin.halo", VERSION, "5"):
-        raise ValueError("Expected Halo 1.3.1 build 5 (dev.kevin.halo); run scripts/build.sh")
+    if (info.get("CFBundleIdentifier"), info.get("CFBundleShortVersionString"), info.get("CFBundleVersion")) != ("dev.kevin.halo", VERSION, "6"):
+        raise ValueError("Expected Halo 1.4.0 build 6 (dev.kevin.halo); run scripts/build.sh")
     audit_bundle(app)
     if (info.get("CFBundleExecutable"), info.get("LSMinimumSystemVersion"), info.get("LSUIElement")) != ("Halo", "14.2", True):
         raise ValueError("Unexpected executable, minimum macOS version, or menu-bar app metadata")

@@ -7,6 +7,7 @@ Halo runs locally. It has no account, analytics, advertising, or crash-upload se
 - Optional Apple Music/Spotify Automation fallback requires macOS consent and is off by default.
 - The Mirror tab uses the camera only with macOS permission and while the tab is visible. It displays a local mirrored preview with no recording output; video is never saved or transmitted. Capture stops when the notch closes, is hidden, changes tabs, or the display sleeps. It does not access the microphone.
 - The file shelf stores file paths in local preferences. Files stay where they are; Halo does not upload them.
+- Notes text is stored in local preferences and is never uploaded or synced. Clear removes the saved note. Release bundles do not include notes or other user preferences.
 - Battery state, display geometry, and pointer position are used locally for the interface.
 - Optional diagnostic flags print local information to the terminal. Pointer tracing stops after 15 seconds. Diagnostics are not uploaded.
 - Launch at login is optional and uses macOS Service Management.

@@ -44,6 +44,7 @@ struct IslandView: View {
                         case .music: PlayerView(model: model)
                         case .focus: FocusView(model: model)
                         case .shelf: ShelfView(model: model)
+                        case .notes: NotesView(notes: model.notes, editing: $model.editingNote)
                         case .mirror: CameraMirrorView(camera: model.camera)
                         }
                     }
@@ -149,7 +150,7 @@ struct IslandView: View {
                 } label: {
                     Text(tab == .music ? "Music" : tab.rawValue)
                         .font(.system(size: 11, weight: .medium))
-                        .padding(.horizontal, 9).frame(height: 27)
+                        .padding(.horizontal, 6).frame(height: 27)
                         .foregroundStyle(model.selectedTab == tab ? .white : haloSecondary)
                         .background(model.selectedTab == tab ? Color.white.opacity(0.1) : .clear, in: RoundedRectangle(cornerRadius: 7))
                 }.buttonStyle(.plain).accessibilityLabel(tab.rawValue)
