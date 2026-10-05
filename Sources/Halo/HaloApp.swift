@@ -150,6 +150,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         appMenu.addItem(withTitle: "Quit Halo", action: #selector(quit), keyEquivalent: "q").target = self
         appItem.submenu = appMenu
         mainMenu.addItem(appItem)
+        let editItem = NSMenuItem()
+        let editMenu = NSMenu(title: "Edit")
+        editMenu.addItem(withTitle: "Undo", action: Selector(("undo:")), keyEquivalent: "z")
+        let redo = editMenu.addItem(withTitle: "Redo", action: Selector(("redo:")), keyEquivalent: "z")
+        redo.keyEquivalentModifierMask = [.command, .shift]
+        editMenu.addItem(.separator())
+        editMenu.addItem(withTitle: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
+        editMenu.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
+        editMenu.addItem(withTitle: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+        editMenu.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+        editItem.submenu = editMenu
+        mainMenu.addItem(editItem)
         NSApp.mainMenu = mainMenu
     }
     @objc private func openIsland() { model.showIsland = true; model.pinned = true; model.setExpanded(true) }
@@ -247,7 +259,7 @@ final class IslandController {
             self.hover.expansionChanged(to: expanded, at: ProcessInfo.processInfo.systemUptime)
             self.scheduleExit()
         }
-        model.$pinned.merge(with: model.$dropTargeted).sink { [weak self] _ in
+        model.$pinned.merge(with: model.$dropTargeted, model.$editingNote).sink { [weak self] _ in
             // @Published emits before assignment; evaluate after the updated pin is visible.
             Task { @MainActor in self?.trackPointer(source: "pin") }
         }.store(in: &pinObservers)
@@ -396,7 +408,7 @@ final class IslandController {
         let expandedBefore = model.expanded
         let buttons = NSEvent.pressedMouseButtons
         let action = hover.update(inside: inside, expanded: model.expanded, hoverEnabled: model.hoverToExpand,
-                                  pinned: model.pinned || model.dropTargeted,
+                                  pinned: model.pinned || model.dropTargeted || model.editingNote,
                                   gestureHeld: buttons != 0, at: uptime)
         switch action {
         case .expand:

@@ -4,8 +4,8 @@ import Combine
 import IOKit.ps
 import HaloCore
 
-enum IslandTab: String, CaseIterable { case music = "Now Playing", focus = "Focus", shelf = "Shelf", mirror = "Mirror"
-    var symbol: String { switch self { case .music: "waveform"; case .focus: "timer"; case .shelf: "tray"; case .mirror: "camera" } }
+enum IslandTab: String, CaseIterable { case music = "Now Playing", focus = "Focus", shelf = "Shelf", notes = "Notes", mirror = "Mirror"
+    var symbol: String { switch self { case .music: "waveform"; case .focus: "timer"; case .shelf: "tray"; case .notes: "note.text"; case .mirror: "camera" } }
 }
 
 struct ShelfItem: Identifiable {
@@ -19,6 +19,8 @@ final class AppModel: ObservableObject {
     let media = MediaService()
     let waveform = AudioWaveform()
     let camera = CameraMirror()
+    let notes = NoteStore()
+    @Published var editingNote = false
     @Published var expanded = false { didSet { reconcileClock() } }
     @Published var expandedByHover = false
     @Published var dropTargeted = false

@@ -12,6 +12,8 @@ The current public release is **ad-hoc signed, not Apple-notarized**. macOS may 
 
 ## Use
 
+Open the **Notes** tab for a quick scratchpad. Text saves automatically on this Mac and survives restarts. Copy copies the whole note; Clear asks before removing it. The island stays open while the editor has keyboard focus.
+
 Halo lives in the menu bar and at the top of your display. Hover over the island to expand it; click the pin to keep it open. The menu bar icon opens settings or quits the app. **Settings → Size** adjusts the open and closed dimensions. **Settings → Waveform** enables real system audio capture and adjusts waveform width, height, line thickness, and line count. Allow Halo system audio access when macOS requests it; use Retry after changing permission.
 
 ## Build locally
